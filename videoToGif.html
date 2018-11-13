@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        
+    </style>
+    </head>
+<body>
+    <input type="file" accept="video/*">
+    <p id="progress"></p>
+    <p id="current"></p>
+    <script type="text/javascript" src="LZWEncoder.js"></script>
+    <script type="text/javascript" src="NeuQuant.js"></script>
+    <script type="text/javascript" src="GIFEncoder.js"></script>
+    <script type="text/javascript" src="b64.js"></script>
+    <script type="text/javascript">
+        document.querySelector('input').addEventListener('change', extractFrames, false);
+        
+
+function extractFrames() {
+  var video = document.createElement('video');
+  var array = [];
+  var canvas = document.createElement('canvas');
+  var ctx = canvas.getContext('2d');
+  var pro = document.querySelector('#progress');
+  var curr = document.querySelector('#current');
+  var interval = 0.5
+  var delayBetweenFramesMs = 200
+
+  var encoder = new GIFEncoder();
+  encoder.setRepeat(1);
+  encoder.setDelay(delayBetweenFramesMs);
+  encoder.setQuality(1000);
+  encoder.start();
+
+  function initCanvas(e) {
+    canvas.width = this.videoWidth;
+    canvas.height = this.videoHeight;
+    video.currentTime = 0.2
+  }
+
+  function saveFrame(blob) {
+    array.push(blob);
+  }
+
+  function revokeURL(e) {
+    URL.revokeObjectURL(this.src);
+  }
+  
+  function onend(e) {
+
+    video.removeEventListener('seeked', seeked, false);
+    // do whatever with the frames
+    for (var i = 0; i < array.length; i++) {
+      var img = new Image();
+      img.onload = revokeURL;
+      img.src = URL.createObjectURL(array[i]);
+      //document.body.appendChild(img);
+    }
+    // we don't need the video's objectURL anymore
+    URL.revokeObjectURL(this.src);
+    createGif()
+  }
+    
+  
+  function seeked(){
+          curr.innerHTML = 'seeked --- '+ video.currentTime
+          ctx.drawImage(this, 0, 0);
+          encoder.addFrame(ctx);
+
+          //saveFrame(ctx.getImageData(0,0,video.width,video.height))
+          /* 
+          this will save as a Blob, less memory consumptive than toDataURL
+          a polyfill can be found at
+          https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob#Polyfill
+          */
+         
+          canvas.toBlob(saveFrame, 'image/jpeg');
+          video.currentTime += interval
+  }
+
+  function createGif(){
+
+    encoder.finish();
+    
+    var binary_gif = encoder.stream().getData() //notice this is different from the as3gif package!
+    var data_url = 'data:image/gif;base64,'+encode64(binary_gif);
+    var img = new Image();
+    img.src = data_url;
+    document.body.appendChild(img);
+    
+    encoder.download('videoToGif.gif')
+    curr.innerHTML = 'Encoder Finished'
+  }
+  video.muted = true;
+
+  video.addEventListener('loadedmetadata', initCanvas, false);
+  video.addEventListener('ended', onend, false);
+  video.addEventListener('seeked', seeked, false);
+  
+
+  video.src = URL.createObjectURL(this.files[0]);
+  //video.play();
+
+
+}
+    </script>
+
+</body>
+</html>
